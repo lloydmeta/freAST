@@ -1,4 +1,4 @@
-# Freast
+# Freast [![Build Status](https://travis-ci.org/lloydmeta/freAST.svg?branch=master)](https://travis-ci.org/lloydmeta/freAST)
 
 **WIP**
 
