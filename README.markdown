@@ -2,7 +2,7 @@
 
 **WIP**
 
-Freast is a Scalameta macro-based lib for easily building Free-monad based AST. It is a port of []Freasy-monad](https://github.com/Thangiee/Freasy-Monad/) to
+Freast is a Scalameta macro-based lib for easily building Free-monad based AST. It is a port of [Freasy-monad](https://github.com/Thangiee/Freasy-Monad/) to
 the newer Scalameta-based toolkit.
 
 Learning Scalameta was a big motivation, and doing this port was similar to taking apart a wall clock and putting it into
