@@ -90,3 +90,53 @@ it("should work") {
 
 }
 ```
+
+The `@free` macro expands to this, which includes `Inject` for composing different ADT grammars.:
+
+```scala
+object KVStore {
+  import cats._
+  import cats.free._
+  import scala.language.higherKinds
+  sealed trait GrammarADT[A]
+  object GrammarADT {
+    case class Put[T](key: String, value: T) extends GrammarADT[Unit]
+    case class Get[T](key: String) extends GrammarADT[Option[T]]
+    case class Delete(key: String) extends GrammarADT[Unit]
+  }
+  object ops {
+    type KVStoreF[A] = Free[GrammarADT, A]
+    def put[T](key: String, value: T): KVStoreF[Unit] = injectOps.put[GrammarADT, T](key, value)
+    def get[T](key: String): KVStoreF[Option[T]] = injectOps.get[GrammarADT, T](key)
+    def delete(key: String): KVStoreF[Unit] = injectOps.delete[GrammarADT](key)
+    def update[T](key: String, f: T => T): KVStoreF[Unit] = injectOps.update[GrammarADT, T](key, f)
+  }
+  object injectOps {
+    def put[F[_], T](key: String, value: T)(implicit I: Inject[GrammarADT, F]): Free[F, Unit] = Free.liftF(I.inj(GrammarADT.Put(key, value)))
+    def get[F[_], T](key: String)(implicit I: Inject[GrammarADT, F]): Free[F, Option[T]] = Free.liftF(I.inj(GrammarADT.Get(key)))
+    def delete[F[_]](key: String)(implicit I: Inject[GrammarADT, F]): Free[F, Unit] = Free.liftF(I.inj(GrammarADT.Delete(key)))
+    def update[F[_], T](key: String, f: T => T)(implicit I: Inject[GrammarADT, F]): Free[F, Unit] = get[F, T](key).flatMap(vMaybe => vMaybe.map(v => put[F, T](key, f(v))).getOrElse(Free.pure(())).map(_ => ()))
+  }
+  class Injects[F[_]](implicit I: Inject[GrammarADT, F]) {
+    def put[T](key: String, value: T): Free[F, Unit] = injectOps.put[F, T](key, value)(I)
+    def get[T](key: String): Free[F, Option[T]] = injectOps.get[F, T](key)(I)
+    def delete(key: String): Free[F, Unit] = injectOps.delete[F](key)(I)
+    def update[T](key: String, f: T => T): Free[F, Unit] = injectOps.update[F, T](key, f)(I)
+  }
+  object Injects { implicit def injectOps[F[_]](implicit I: Inject[GrammarADT, F]): Injects[F] = new Injects[F] }
+  trait Interp[M[_]] {
+    import ops._
+    val interpreter = new ~>[GrammarADT, M] {
+      def apply[A](fa: GrammarADT[A]): M[A] = fa match {
+        case GrammarADT.Put(key, value) => put(key, value)
+        case GrammarADT.Get(key) => get(key)
+        case GrammarADT.Delete(key) => delete(key)
+      }
+    }
+    def run[A](op: KVStoreF[A])(implicit m: Monad[M]): M[A] = op.foldMap(interpreter)
+    def put[T](key: String, value: T): M[Unit]
+    def get[T](key: String): M[Option[T]]
+    def delete(key: String): M[Unit]
+  }
+}
+```
