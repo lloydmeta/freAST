@@ -19,7 +19,7 @@ object Shared {
         if (abstractMembers.size <= 0) {
           abort(s"Did Not find any abstract members with $typeAlias return type. Add some.")
         }
-        val concreteMembers            = getConcreteMembers(template)
+        val concreteMembers = getConcreteMembers(template)
 
         val (liftedOps, liftedOpsRefs) = generateLiftedOps(abstractMembers)
         val (concreteOps, concreteOpsRef, concreteNonOps, concreteNonOpsRef) =
@@ -65,7 +65,7 @@ object Shared {
               $interpreterTrait
             }
            """
-        // print(genCompanionObj.syntax)
+        // println(genCompanionObj.syntax)
 
         // Sadly, the trait cannot simply disappear during macro expansion, so we'll just keep it around but seal it
         q"""
@@ -110,7 +110,7 @@ object Shared {
         case cd @ q"sealed trait $name[..$_]" if name.value == freeSType.value => cd
       })
       sealedFreeTraits match {
-        case Some(cd: Defn.Trait)=> cd
+        case Some(cd: Defn.Trait) => cd
         case _ =>
           abort(s"There should be 1 and only 1 sealed ADT class, found None")
       }
@@ -122,16 +122,24 @@ object Shared {
         st <- s
       } {
         st match {
-          case d @ Defn.Def(mods, _, _, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+          case d @ Defn.Def(mods, _, _, _, _, _)
+              if mods.exists(e =>
+                e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
             abort(s"Please use only package private or protected: ${d.syntax}")
           }
-          case v @ Defn.Val(mods, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+          case v @ Defn.Val(mods, _, _, _)
+              if mods.exists(e =>
+                e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
             abort(s"Please use only package private or protected: ${v.syntax}")
           }
-          case d @ Decl.Def(mods, _, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+          case d @ Decl.Def(mods, _, _, _, _)
+              if mods.exists(e =>
+                e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
             abort(s"Please use only package private or protected: ${d.syntax}")
           }
-          case v @ Decl.Val(mods, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+          case v @ Decl.Val(mods, _, _)
+              if mods.exists(e =>
+                e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
             abort(s"Please use only package private or protected: ${v.syntax}")
           }
 
@@ -182,17 +190,17 @@ object Shared {
       template.stats.map { stats =>
         stats.collect {
           case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Select, _))
-            if retName.name.value == typeAliasName =>
+              if retName.name.value == typeAliasName =>
             m
           case v @ Decl.Val(_, _, Type.Apply(retName: Type.Select, _))
-            if retName.name.value == typeAliasName =>
+              if retName.name.value == typeAliasName =>
             v
 
           case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Name, _))
-            if retName.value == typeAliasName =>
+              if retName.value == typeAliasName =>
             m
           case v @ Decl.Val(_, _, Type.Apply(retName: Type.Name, _))
-            if retName.value == typeAliasName =>
+              if retName.value == typeAliasName =>
             v
         }.toList
       }.getOrElse(Nil)
@@ -310,8 +318,9 @@ object Shared {
         case q"..$mods def $name[..$tparams](...$paramss): $rt = $_" => {
           val tNames = tParamsToTNames(tparams)
           val args   = paramssToArgs(paramss)
-          val injectOps = if (tNames.nonEmpty) q"injectOps.$name[..$tNames]" else q"injectOps.$name"
-          val rhs    = methodCallFmt(injectOps, args)
+          val injectOps =
+            if (tNames.nonEmpty) q"injectOps.$name[..$tNames]" else q"injectOps.$name"
+          val rhs = methodCallFmt(injectOps, args)
           if (tparams.nonEmpty)
             q"..$mods def $name[..$tparams](...$paramss): $rt = $rhs"
           else
@@ -418,7 +427,7 @@ object Shared {
 
     private type Paramss = Seq[Seq[Term.Param]]
     private def paramssToArgs(paramss: Paramss): Seq[Seq[Term.Arg]] = {
-      paramss.filter(_.nonEmpty).map(_.map(p => Term.Name(p.name.value)))
+      paramss.map(_.map(p => Term.Name(p.name.value)))
     }
 
     // ex: convert (a: A)(b: B) to (a, b)
@@ -429,8 +438,7 @@ object Shared {
       } yield Term.Name(p.name.value)
     }
 
-    private def methodCallFmt(method: Term, args: Seq[Seq[Term.Arg]]): Term =
-      if (args.flatten.isEmpty) method else q"$method(...$args)"
+    private def methodCallFmt(method: Term, args: Seq[Seq[Term.Arg]]): Term = q"$method(...$args)"
 
     private def tParamsToTNames(tparams: Seq[Type.Param]): Seq[Type.Name] = {
       tparams.map(t => Type.Name(t.name.value))

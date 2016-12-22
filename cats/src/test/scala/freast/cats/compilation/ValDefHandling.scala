@@ -4,15 +4,18 @@ import freast.cats.free
 import cats.Id
 import cats.free.Free
 
-
+/**
+  * Taken from https://github.com/Thangiee/Freasy-Monad/blob/master/core/shared/src/test/scala/compilation/ValDefHandling.scala
+  */
 // Make sure vals and defs are compiled correctly for ops/injectOps/Inject
 object ValDefHandling extends App {
-  @free trait KVStore {
+  @free
+  trait KVStore {
     type KVStoreF[A] = Free[GrammarADT, A]
     sealed trait GrammarADT[A]
 
     private[ValDefHandling] val someVal: String = "a"
-    def someDef(a: Int): Option[Int] = Some(a + 1)
+    def someDef(a: Int): Option[Int]            = Some(a + 1)
 
     def get[T](key: String): KVStoreF[Option[T]]
     val deleteAll: KVStoreF[Unit]
@@ -23,8 +26,8 @@ object ValDefHandling extends App {
 //        _ = someDef(3) TODO: track https://github.com/scalameta/paradise/issues/146
       } yield n
 
-    val someKey: String = "key123"
-    def getSomeKey[T]: KVStoreF[Option[T]] = get[T](someKey)
+    val someKey: String                      = "key123"
+    def getSomeKey[T]: KVStoreF[Option[T]]   = get[T](someKey)
     val getSomeIntKey: KVStoreF[Option[Int]] = get[Int](someKey)
   }
 
@@ -33,29 +36,29 @@ object ValDefHandling extends App {
   def program1(implicit I: KVStore.Injects[GrammarADT]) = {
     import I._
     someVal
-    val a: Free[GrammarADT, Option[Int]] = getSomeKey[Int]
-    val b: Free[GrammarADT, Option[Int]] = getSomeIntKey
-    val c: Option[Int] = someDef(1)
-    val d: Free[GrammarADT, Unit] = deleteAll
+    val a: Free[GrammarADT, Option[Int]]    = getSomeKey[Int]
+    val b: Free[GrammarADT, Option[Int]]    = getSomeIntKey
+    val c: Option[Int]                      = someDef(1)
+    val d: Free[GrammarADT, Unit]           = deleteAll
     val e: Free[GrammarADT, Option[String]] = foo[String]("")
   }
 
   object injectOps {
     import KVStore.injectOps._
     someKey
-    val a: Free[GrammarADT, Option[Int]] = getSomeKey[GrammarADT, Int]
-    val b: Free[GrammarADT, Option[Int]] = getSomeIntKey[GrammarADT]
-    val c: Option[Int] = someDef(1)
-    val d: Free[GrammarADT, Unit] = deleteAll[GrammarADT]
+    val a: Free[GrammarADT, Option[Int]]    = getSomeKey[GrammarADT, Int]
+    val b: Free[GrammarADT, Option[Int]]    = getSomeIntKey[GrammarADT]
+    val c: Option[Int]                      = someDef(1)
+    val d: Free[GrammarADT, Unit]           = deleteAll[GrammarADT]
     val e: Free[GrammarADT, Option[String]] = foo[GrammarADT, String]("")
   }
 
   import KVStore.ops._
 
-  val a: KVStoreF[Option[Int]] = getSomeKey[Int]
-  val b: KVStoreF[Option[Int]] = getSomeIntKey
-  val c: Option[Int] = someDef(1)
-  val d: KVStoreF[Unit] = deleteAll
+  val a: KVStoreF[Option[Int]]    = getSomeKey[Int]
+  val b: KVStoreF[Option[Int]]    = getSomeIntKey
+  val c: Option[Int]              = someDef(1)
+  val d: KVStoreF[Unit]           = deleteAll
   val e: KVStoreF[Option[String]] = foo[String]("")
 
   assert(someVal == "a")
@@ -63,6 +66,6 @@ object ValDefHandling extends App {
 
   val interp = new KVStore.Interp[Id] {
     def get[T](key: String): Id[Option[T]] = ???
-    def deleteAll: Id[Unit] = ???
+    def deleteAll: Id[Unit]                = ???
   }
 }
