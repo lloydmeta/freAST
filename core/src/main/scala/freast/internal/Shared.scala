@@ -19,7 +19,8 @@ object Shared {
         if (abstractMembers.size <= 0) {
           abort(s"Did Not find any abstract members with $typeAlias return type. Add some.")
         }
-        val concreteMembers            = template.collect { case c: Defn => c }
+        val concreteMembers            = getConcreteMembers(template)
+
         val (liftedOps, liftedOpsRefs) = generateLiftedOps(abstractMembers)
         val (concreteOps, concreteOpsRef, concreteNonOps, concreteNonOpsRef) =
           generateNewConcreteMembers(concreteMembers, liftedOps)
@@ -89,29 +90,29 @@ object Shared {
     private val F              = tparam"F[_]"
 
     def getFreeTypeAlias(template: Template): (Defn.Type, Type.Name) = {
-      val freeTypeAliases = template.collect {
+      val freeTypeAliases = template.stats.flatMap(_.collectFirst {
         case typedef @ q"..$mods type $tname[..$tparams] = Free[$s, $_]" => (typedef, s)
-      }
+      })
 
       freeTypeAliases match {
-        case (typedef: Defn.Type, s: Type.Name) :: Nil => (typedef, s)
+        case Some((typedef: Defn.Type, s: Type.Name)) => (typedef, s)
         // IntelliJ uses this for some reason
-        case (typedef: Defn.Type, s: Type.Select) :: Nil =>
+        case Some((typedef: Defn.Type, s: Type.Select)) =>
           (typedef, s.name)
         case _ => {
-          abort(s"There should be 1 and only 1 type alias for Free, found ${freeTypeAliases.size}")
+          abort(s"There should be 1 and only 1 type alias for Free, found None")
         }
       }
     }
 
     def getSealedFreeTrait(template: Template, freeSType: Type.Name): Defn.Trait = {
-      val sealedFreeTraits = template.collect {
+      val sealedFreeTraits = template.stats.flatMap(_.collectFirst {
         case cd @ q"sealed trait $name[..$_]" if name.value == freeSType.value => cd
-      }
+      })
       sealedFreeTraits match {
-        case (cd: Defn.Trait) :: Nil => cd
+        case Some(cd: Defn.Trait)=> cd
         case _ =>
-          abort(s"There should be 1 and only 1 sealed ADT class, found ${sealedFreeTraits.size}")
+          abort(s"There should be 1 and only 1 sealed ADT class, found None")
       }
     }
 
@@ -121,6 +122,19 @@ object Shared {
         st <- s
       } {
         st match {
+          case d @ Defn.Def(mods, _, _, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+            abort(s"Please use only package private or protected: ${d.syntax}")
+          }
+          case v @ Defn.Val(mods, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+            abort(s"Please use only package private or protected: ${v.syntax}")
+          }
+          case d @ Decl.Def(mods, _, _, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+            abort(s"Please use only package private or protected: ${d.syntax}")
+          }
+          case v @ Decl.Val(mods, _, _) if mods.exists(e => e == Mod.Private(Name.Anonymous()) || e == Mod.Protected(Name.Anonymous())) => {
+            abort(s"Please use only package private or protected: ${v.syntax}")
+          }
+
           case v @ Defn.Def(_, _, _, _, None, _) =>
             abort(s"Return type must be explicitly stated for $v")
           case v @ Defn.Val(_, _, None, _) =>
@@ -154,25 +168,34 @@ object Shared {
       }
     }
 
+    def getConcreteMembers(template: Template): List[Defn] = {
+      template.stats.map { stats =>
+        stats.collect {
+          case d: Defn.Def => d
+          case v: Defn.Val => v
+        }.toList
+      }.getOrElse(Nil)
+    }
+
     def getAbstractMembers(template: Template): List[Decl] = {
       val typeAliasName = typeAlias.name.value
-      template.collect {
-        // These 2 are likely used by IntelliJ and older (?) versions of ScalaMeta?
-        case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Select, _))
+      template.stats.map { stats =>
+        stats.collect {
+          case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Select, _))
             if retName.name.value == typeAliasName =>
-          m
-        case v @ Decl.Val(_, _, Type.Apply(retName: Type.Select, _))
+            m
+          case v @ Decl.Val(_, _, Type.Apply(retName: Type.Select, _))
             if retName.name.value == typeAliasName =>
-          v
+            v
 
-        case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Name, _))
+          case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Name, _))
             if retName.value == typeAliasName =>
-          m
-        case v @ Decl.Val(_, _, Type.Apply(retName: Type.Name, _))
+            m
+          case v @ Decl.Val(_, _, Type.Apply(retName: Type.Name, _))
             if retName.value == typeAliasName =>
-          v
-      }
-
+            v
+        }.toList
+      }.getOrElse(Nil)
     }
 
     def generateLiftedOps(abstractMembers: List[Decl]): (List[Defn.Def], List[Defn]) = {
@@ -188,7 +211,10 @@ object Shared {
             val args       = paramssToArgs(paramss)
             val typeParams = t"${sealedFreeTrait.name}" +: tParamsToTNames(tparams)
             val rhs        = methodCallFmt(q"injectOps.$name[..$typeParams]", args)
-            q"def $name[..$tparams](...$paramss): $rt = $rhs"
+            if (tparams.nonEmpty)
+              q"def $name[..$tparams](...$paramss): $rt = $rhs"
+            else
+              q"def $name(...$paramss): $rt = $rhs"
           }
           (op, opRef)
         case Decl.Val(_, Seq(nameTerm), rt @ Type.Apply(_, innerType)) =>
@@ -268,7 +294,10 @@ object Shared {
           val typeParams = t"${sealedFreeTrait.name}" +: tParamsToTNames(tparams)
           val args       = paramssToArgs(paramss)
           val rhs        = methodCallFmt(q"injectOps.$name[..$typeParams]", args)
-          q"..$mods def $name[..$tparams](...$paramss): $rt = $rhs"
+          if (tparams.nonEmpty)
+            q"..$mods def $name[..$tparams](...$paramss): $rt = $rhs"
+          else
+            q"..$mods def $name(...$paramss): $rt = $rhs"
         }
         case q"..$mods val ${pat: Pat.Var.Term}: $rt = $_" => {
           val name = pat.name
@@ -278,13 +307,19 @@ object Shared {
 
       // vals and defs that call other vals and defs in injectOps
       val nonOpsRef = nonOps.collect {
-        case q"..$mods def $name[..$tparams](...$paramss): $rt = $_" =>
+        case q"..$mods def $name[..$tparams](...$paramss): $rt = $_" => {
           val tNames = tParamsToTNames(tparams)
           val args   = paramssToArgs(paramss)
-          val rhs    = methodCallFmt(q"injectOps.$name[..$tNames]", args)
-          q"..$mods def $name[..$tparams](...$paramss): $rt = $rhs"
-        case q"..$mods val ${pats @ (pat: Pat.Var.Term)}: $rt = $_" =>
+          val injectOps = if (tNames.nonEmpty) q"injectOps.$name[..$tNames]" else q"injectOps.$name"
+          val rhs    = methodCallFmt(injectOps, args)
+          if (tparams.nonEmpty)
+            q"..$mods def $name[..$tparams](...$paramss): $rt = $rhs"
+          else
+            q"..$mods def $name(...$paramss): $rt = $rhs"
+        }
+        case q"..$mods val ${pats @ (pat: Pat.Var.Term)}: $rt = $_" => {
           q"..$mods val $pats: $rt = injectOps.${pat.name}"
+        }
       }
       (injectOps, opsRef, nonOps, nonOpsRef)
     }
@@ -298,7 +333,10 @@ object Shared {
           val args   = paramssToArgs(paramss)
           val rhs    = methodCallFmt(q"injectOps.$tname[..$tNames]", args)
           // tail to remove the F[_] from tparams; dropRight(1) to remove implicit param
-          q"def $tname[..${tparams.tail}](...${paramss.dropRight(1)}): $tpt = $rhs"
+          if (tparams.tail.nonEmpty)
+            q"def $tname[..${tparams.tail}](...${paramss.dropRight(1)}): $tpt = $rhs"
+          else
+            q"def $tname(...${paramss.dropRight(1)}): $tpt = $rhs"
       }
       val klass  = q"""
           class Injects[F[_]](implicit I: Inject[${sealedFreeTrait.name}, F]) {
@@ -334,8 +372,12 @@ object Shared {
     def generateInterpreterTrait(abstractMembers: List[Decl]): Trait = {
       // Replace the outermost type of the return type with a container type M
       val methodsToBeImpl = abstractMembers.collect {
-        case q"..$mods def $name[..$tparams](...$paramss): ${rt: Type.Apply}" =>
-          q"..$mods def $name[..$tparams](...$paramss): ${rt.copy(tpe = t"M")}"
+        case q"..$mods def $name[..$tparams](...$paramss): ${rt: Type.Apply}" => {
+          if (tparams.nonEmpty)
+            q"..$mods def $name[..$tparams](...$paramss): ${rt.copy(tpe = t"M")}"
+          else
+            q"..$mods def $name(...$paramss): ${rt.copy(tpe = t"M")}"
+        }
         case q"..$mods val ${p: Pat.Var.Term}: ${rt: Type.Apply}" =>
           q"..$mods def ${p.name}: ${rt.copy(tpe = t"M")}"
       }
@@ -387,7 +429,7 @@ object Shared {
       } yield Term.Name(p.name.value)
     }
 
-    private def methodCallFmt(method: Term.ApplyType, args: Seq[Seq[Term.Arg]]): Term =
+    private def methodCallFmt(method: Term, args: Seq[Seq[Term.Arg]]): Term =
       if (args.flatten.isEmpty) method else q"$method(...$args)"
 
     private def tParamsToTNames(tparams: Seq[Type.Param]): Seq[Type.Name] = {
