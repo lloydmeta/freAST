@@ -44,7 +44,7 @@ lazy val scalaz = project
     metaMacroSettings,
     publishSettings,
     libraryDependencies ++= {
-      commonDependencies :+ "org.scalaz"    %% "scalaz-core" % "7.2.8"
+      commonDependencies :+ "org.scalaz" %% "scalaz-core" % "7.2.8"
     }
   )
   .dependsOn(core)
@@ -52,7 +52,24 @@ lazy val scalaz = project
 lazy val commonSettings: Seq[Def.Setting[_]] = Seq(
   organization := "com.beachape",
   version := theVersion,
-  scalaVersion := theScalaVersion
+  scalaVersion := theScalaVersion,
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-encoding",
+    "UTF-8",
+    "-feature",
+    "-language:existentials",
+    "-language:higherKinds",
+    "-language:implicitConversions",
+    "-unchecked",
+    // "-Xfatal-warnings",
+    // "-Xlint",
+    "-Yno-adapted-args",
+    "-Ywarn-dead-code",
+    "-Ywarn-numeric-widen",
+    "-Ywarn-value-discard",
+    "-Xfuture"
+  )
 )
 
 lazy val metaMacroSettings: Seq[Def.Setting[_]] = Seq(
@@ -73,8 +90,8 @@ lazy val metaMacroSettings: Seq[Def.Setting[_]] = Seq(
 )
 
 lazy val commonDependencies = Seq(
-  "org.scalatest" %% "scalatest"   % "3.0.1-SNAP1" % Test,
-  "org.scalameta" %% "scalameta"   % "1.4.0"
+  "org.scalatest" %% "scalatest" % "3.0.1-SNAP1" % Test,
+  "org.scalameta" %% "scalameta" % "1.4.0"
 )
 
 // Settings for publishing to Maven Central
@@ -111,22 +128,4 @@ lazy val publishSettings: Seq[Def.Setting[_]] = Seq(
   pomIncludeRepository := { _ =>
     false
   }
-)
-
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-encoding",
-  "UTF-8",
-  "-feature",
-  "-language:existentials",
-  "-language:higherKinds",
-  "-language:implicitConversions",
-  "-unchecked",
-  "-Xfatal-warnings",
-  "-Xlint",
-  "-Yno-adapted-args",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
-  "-Ywarn-value-discard",
-  "-Xfuture"
 )
