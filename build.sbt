@@ -32,7 +32,7 @@ lazy val cats = project
     metaMacroSettings,
     publishSettings,
     libraryDependencies ++= {
-      commonDependencies :+ "org.typelevel" %% "cats" % "0.8.1"
+      commonDependencies :+ "org.typelevel" %% "cats" % "0.9.0"
     }
   )
   .dependsOn(core)
@@ -44,7 +44,7 @@ lazy val scalaz = project
     metaMacroSettings,
     publishSettings,
     libraryDependencies ++= {
-      commonDependencies :+ "org.scalaz" %% "scalaz-core" % "7.2.8"
+      commonDependencies :+ "org.scalaz" %% "scalaz-core" % "7.2.10"
     }
   )
   .dependsOn(core)
@@ -81,7 +81,7 @@ lazy val metaMacroSettings: Seq[Def.Setting[_]] = Seq(
   // A dependency on macro paradise is required to both write and expand
   // new-style macros.  This is similar to how it works for old-style macro
   // annotations and a dependency on macro paradise 2.x.
-  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-beta4" cross CrossVersion.full),
+  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M7" cross CrossVersion.full),
   scalacOptions += "-Xplugin-require:macroparadise",
   // temporary workaround for https://github.com/scalameta/paradise/issues/10
   scalacOptions in (Compile, console) := Seq(), // macroparadise plugin doesn't work in repl yet.
@@ -91,7 +91,7 @@ lazy val metaMacroSettings: Seq[Def.Setting[_]] = Seq(
 
 lazy val commonDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.1-SNAP1" % Test,
-  "org.scalameta" %% "scalameta" % "1.4.0"
+  "org.scalameta" %% "scalameta" % "1.6.0"
 )
 
 // Settings for publishing to Maven Central
