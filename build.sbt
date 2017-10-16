@@ -6,7 +6,6 @@ lazy val theScalaVersion = "2.11.11"
 lazy val root = Project(id = "freast-root", base = file("."))
   .settings(
     name := "freast-root",
-    crossScalaVersions := Seq("2.11.11", "2.12.3"),
     crossVersion := CrossVersion.binary,
     publishSettings,
     // Do not publish the root project (it just serves as an aggregate)
@@ -45,7 +44,7 @@ lazy val scalaz = project
     metaMacroSettings,
     publishSettings,
     libraryDependencies ++= {
-      commonDependencies :+ "org.scalaz" %% "scalaz-core" % "7.2.10"
+      commonDependencies :+ "org.scalaz" %% "scalaz-core" % "7.2.16"
     }
   )
   .dependsOn(core)
@@ -54,6 +53,7 @@ lazy val commonSettings: Seq[Def.Setting[_]] = Seq(
   organization := "com.beachape",
   version := theVersion,
   scalaVersion := theScalaVersion,
+  crossScalaVersions := Seq("2.11.11", "2.12.3"),
   scalacOptions ++= Seq(
     "-deprecation",
     "-encoding",
@@ -78,14 +78,14 @@ lazy val metaMacroSettings: Seq[Def.Setting[_]] = Seq(
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
   scalacOptions += "-Xplugin-require:macroparadise",
   scalacOptions in (Compile, console) ~= (_ filterNot (_ contains "paradise")), // macroparadise plugin doesn't work in repl yet.
-  scalacOptions in (Compile, console) := Seq(), // macroparadise plugin doesn't work in repl yet.
+  scalacOptions in (Compile, console) := Seq(),                                 // macroparadise plugin doesn't work in repl yet.
   // temporary workaround for https://github.com/scalameta/paradise/issues/55
   sources in (Compile, doc) := Nil // macroparadise doesn't work with scaladoc yet.
 )
 
 lazy val commonDependencies = Seq(
-  "org.scalatest" %% "scalatest" % "3.0.1-SNAP1" % Test,
-  "org.scalameta" %% "scalameta" % "1.8.0" % Provided,
+  "org.scalatest" %% "scalatest" % "3.0.4" % Test,
+  "org.scalameta" %% "scalameta" % "1.8.0" % Provided
 )
 
 // Settings for publishing to Maven Central
@@ -123,3 +123,5 @@ lazy val publishSettings: Seq[Def.Setting[_]] = Seq(
     false
   }
 )
+
+scalafmtOnCompile in ThisBuild := true

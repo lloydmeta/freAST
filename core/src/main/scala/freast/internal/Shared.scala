@@ -177,33 +177,37 @@ object Shared {
     }
 
     def getConcreteMembers(template: Template): List[Defn] = {
-      template.stats.map { stats =>
-        stats.collect {
-          case d: Defn.Def => d
-          case v: Defn.Val => v
-        }.toList
-      }.getOrElse(Nil)
+      template.stats
+        .map { stats =>
+          stats.collect {
+            case d: Defn.Def => d
+            case v: Defn.Val => v
+          }.toList
+        }
+        .getOrElse(Nil)
     }
 
     def getAbstractMembers(template: Template): List[Decl] = {
       val typeAliasName = typeAlias.name.value
-      template.stats.map { stats =>
-        stats.collect {
-          case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Select, _))
-              if retName.name.value == typeAliasName =>
-            m
-          case v @ Decl.Val(_, _, Type.Apply(retName: Type.Select, _))
-              if retName.name.value == typeAliasName =>
-            v
+      template.stats
+        .map { stats =>
+          stats.collect {
+            case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Select, _))
+                if retName.name.value == typeAliasName =>
+              m
+            case v @ Decl.Val(_, _, Type.Apply(retName: Type.Select, _))
+                if retName.name.value == typeAliasName =>
+              v
 
-          case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Name, _))
-              if retName.value == typeAliasName =>
-            m
-          case v @ Decl.Val(_, _, Type.Apply(retName: Type.Name, _))
-              if retName.value == typeAliasName =>
-            v
-        }.toList
-      }.getOrElse(Nil)
+            case m @ Decl.Def(_, _, _, _, Type.Apply(retName: Type.Name, _))
+                if retName.value == typeAliasName =>
+              m
+            case v @ Decl.Val(_, _, Type.Apply(retName: Type.Name, _))
+                if retName.value == typeAliasName =>
+              v
+          }.toList
+        }
+        .getOrElse(Nil)
     }
 
     def generateLiftedOps(abstractMembers: List[Decl]): (List[Defn.Def], List[Defn]) = {
